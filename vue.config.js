@@ -19,45 +19,25 @@ function addThemeSupport(config) {
     theme => new RegExp(`theme=${theme}`)
   );
 
-  ['css', 'postcss', 'scss', 'sass', 'less', 'stylus'].forEach(rule => {
-    // exclude other themes in existing rules
-    config.module
-      .rule(rule)
-      .oneOf('vue-modules')
-      .resourceQuery({
-        test: config.module
-          .rule(rule)
-          .oneOf('vue-modules')
-          .get('resourceQuery'),
-        not: otherThemesCond,
-      });
-    config.module
-      .rule(rule)
-      .oneOf('vue')
-      .resourceQuery({
-        test: config.module
-          .rule(rule)
-          .oneOf('vue')
-          .get('resourceQuery'),
-        not: otherThemesCond,
-      });
-    config.module
-      .rule(rule)
-      .oneOf('normal-modules')
-      .resourceQuery({ not: otherThemesCond });
-    config.module
-      .rule(rule)
-      .oneOf('normal')
-      .resourceQuery({ not: otherThemesCond });
+  const oneOfs = ['vue-modules', 'vue', 'normal-modules', 'normal'];
+  ['css', 'postcss', 'scss', 'sass', 'less', 'stylus'].forEach(style => {
+    // workaround for https://github.com/neutrinojs/webpack-chain/issues/119,
+    // store and remove existing rules
+    const oneOfRules = config.module.rule(style).oneOfs;
+    const rules = oneOfs.map(rule => oneOfRules.get(rule));
+    oneOfs.forEach(rule => oneOfRules.delete(rule));
 
-    // add catch-all rule to null other themes
+    // prepend existing style rules which nullifies other theme styles
     config.module
-      .rule(rule)
-      .oneOf('theme')
+      .rule(style)
+      .oneOf('nullify-other-themes')
       .resourceQuery({ or: otherThemesCond })
-      .use('null')
+      .use('null-loader')
       .loader('null-loader')
       .end();
+
+    // append existing rules
+    oneOfs.forEach((rule, idx) => oneOfRules.set(rule, rules[idx]));
   });
 }
 
